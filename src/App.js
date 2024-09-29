@@ -159,7 +159,9 @@ const App = () => {
 				</div>
 
 				<div className='mt-4 p-4 bg-gray-50 rounded'>
-					<h2 className='text-xl font-semibold'>Response:</h2>
+					<h2 className='text-xl font-semibold'>
+						Chat GPT Response:
+					</h2>
 					<p className='mt-2 text-gray-700'>
 						{/* Highlight the current word being spoken */}
 						{words.length > 0 &&
