@@ -1,46 +1,80 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 
 const App = () => {
 	const [userInput, setUserInput] = useState("");
 	const [response, setResponse] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
-	const [selectedVoice, setSelectedVoice] = useState("female"); // To track the selected voice
-	const [highlightedText, setHighlightedText] = useState(""); // For highlighting words
+	const [selectedVoice, setSelectedVoice] = useState("female"); // Track selected voice
+	const [highlightedWordIndex, setHighlightedWordIndex] = useState(null); // Track word index for highlighting
+	const [words, setWords] = useState([]); // Store the split words from the response
+	const [speaking, setSpeaking] = useState(false); // Track whether the TTS is speaking or not
+	const synthRef = useRef(window.speechSynthesis); // Speech synthesis reference
+	let utterance;
 
-	let speechSynthesisUtterance;
-
-	// Function to fetch available voices (male or female)
-	const getVoices = useCallback(() => {
+	// Function to get available voices (male or female)
+	const getVoice = useCallback(() => {
 		const voices = window.speechSynthesis.getVoices();
-		// Filter for male/female voices, this is basic and depends on available voices in the browser.
-		const maleVoices = voices.filter((voice) =>
-			voice.name.includes("Male"),
-		);
-		const femaleVoices = voices.filter((voice) =>
-			voice.name.includes("Female"),
-		);
-		return selectedVoice === "female" ? femaleVoices[0] : maleVoices[0];
+		// Find male or female voice based on selection
+		if (selectedVoice === "male") {
+			return (
+				voices.find((voice) => voice.name.includes("Male")) || voices[0]
+			);
+		} else {
+			return (
+				voices.find((voice) => voice.name.includes("Female")) ||
+				voices[0]
+			);
+		}
 	}, [selectedVoice]);
 
 	// Function to start speech synthesis with word highlighting
 	const startSpeech = (text) => {
-		speechSynthesisUtterance = new SpeechSynthesisUtterance(text);
-		speechSynthesisUtterance.voice = getVoices();
+		if (synthRef.current.speaking) {
+			synthRef.current.cancel(); // Cancel any ongoing speech
+		}
 
-		const words = text.split(" ");
-		let wordIndex = 0;
+		// Split response into words and store them
+		const wordArray = text.split(" ");
+		setWords(wordArray);
 
-		speechSynthesisUtterance.onboundary = (event) => {
-			if (event.name === "word") {
-				setHighlightedText(
-					words.slice(0, wordIndex + 1).join(" ") + " ",
-				);
-				wordIndex += 1;
-			}
+		let currentChunk = 0;
+		let chunkSize = 20; // Number of words per chunk for TTS to speak
+
+		// Function to speak a chunk and highlight words
+		const speakChunk = (startIndex) => {
+			const chunk = wordArray
+				.slice(startIndex, startIndex + chunkSize)
+				.join(" ");
+			utterance = new SpeechSynthesisUtterance(chunk);
+			utterance.voice = getVoice();
+
+			// Use the boundary event to track word boundaries and highlight words
+			utterance.onboundary = (event) => {
+				const spokenWord =
+					chunk.slice(0, event.charIndex).split(" ").length - 1;
+				setHighlightedWordIndex(startIndex + spokenWord);
+			};
+
+			utterance.onend = () => {
+				// If more chunks are remaining, speak the next one
+				if (startIndex + chunkSize < wordArray.length) {
+					speakChunk(startIndex + chunkSize);
+				} else {
+					// When all chunks are spoken, reset highlighting
+					setHighlightedWordIndex(null);
+					setSpeaking(false);
+				}
+			};
+
+			// Speak the current chunk
+			synthRef.current.speak(utterance);
+			console.log("utterance", utterance);
 		};
 
-		speechSynthesis.speak(speechSynthesisUtterance);
+		// Start speaking the first chunk
+		setSpeaking(true);
+		speakChunk(currentChunk);
 	};
 
 	const handleSubmit = async (e) => {
@@ -71,9 +105,11 @@ const App = () => {
 		setIsLoading(false);
 	};
 
+	// Fetch voices when component mounts
 	useEffect(() => {
-		window.speechSynthesis.onvoiceschanged = getVoices;
-	}, [getVoices]);
+		const voicesChanged = () => getVoice();
+		window.speechSynthesis.onvoiceschanged = voicesChanged;
+	}, [getVoice, selectedVoice]);
 
 	return (
 		<div className='flex items-center justify-center min-h-screen bg-gray-100'>
@@ -84,7 +120,7 @@ const App = () => {
 				<form onSubmit={handleSubmit} className='space-y-4'>
 					<input
 						type='text'
-						placeholder='Enter your prompt...'
+						placeholder='Ask me anything...'
 						className='w-full p-2 border border-gray-300 rounded'
 						value={userInput}
 						onChange={(e) => setUserInput(e.target.value)}
@@ -125,11 +161,21 @@ const App = () => {
 				<div className='mt-4 p-4 bg-gray-50 rounded'>
 					<h2 className='text-xl font-semibold'>Response:</h2>
 					<p className='mt-2 text-gray-700'>
-						{/* Highlight the current text being spoken */}
-						<span>{highlightedText}</span>
-						<span style={{ color: "blue" }}>
-							{response.slice(highlightedText.length)}
-						</span>
+						{/* Highlight the current word being spoken */}
+						{words.length > 0 &&
+							words.map((word, index) => (
+								<span
+									key={index}
+									style={{
+										backgroundColor:
+											index === highlightedWordIndex
+												? "yellow"
+												: "transparent",
+									}}
+								>
+									{word}{" "}
+								</span>
+							))}
 					</p>
 				</div>
 			</div>
