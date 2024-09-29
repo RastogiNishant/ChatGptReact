@@ -6,28 +6,9 @@ const App = () => {
 	const [response, setResponse] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 
-	const fetchQuotaInfo = async () => {
-		try {
-			const quotaRes = await axios.get(
-				"https://api.openai.com/v1/org/usage",
-				{
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${process.env.REACT_APP_CHAT_GPT_API_KEY}`,
-					},
-				},
-			);
-
-			console.log("Quota Info:", quotaRes.data);
-		} catch (error) {
-			console.error("Error fetching quota information:", error);
-		}
-	};
-
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setIsLoading(true);
-		await fetchQuotaInfo();
 		try {
 			const res = await axios.post(
 				"https://api.openai.com/v1/chat/completions",
