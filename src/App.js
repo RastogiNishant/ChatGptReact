@@ -162,23 +162,27 @@ const App = () => {
 					<h2 className='text-xl font-semibold'>
 						Chat GPT Response:
 					</h2>
-					<p className='mt-2 text-gray-700'>
-						{/* Highlight the current word being spoken */}
-						{words.length > 0 &&
-							words.map((word, index) => (
-								<span
-									key={index}
-									style={{
-										backgroundColor:
-											index === highlightedWordIndex
-												? "yellow"
-												: "transparent",
-									}}
-								>
-									{word}{" "}
-								</span>
-							))}
-					</p>
+					{response !== "Free tier limit exhausted" ? (
+						<p className='mt-2 text-gray-700'>
+							{/* Highlight the current word being spoken */}
+							{words.length > 0 &&
+								words.map((word, index) => (
+									<span
+										key={index}
+										style={{
+											backgroundColor:
+												index === highlightedWordIndex
+													? "yellow"
+													: "transparent",
+										}}
+									>
+										{word}{" "}
+									</span>
+								))}
+						</p>
+					) : (
+						<p>Ahh.. seems like api configuration is not there!</p>
+					)}
 				</div>
 			</div>
 		</div>
