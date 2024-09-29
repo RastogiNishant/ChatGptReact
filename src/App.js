@@ -1,10 +1,47 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 
 const App = () => {
 	const [userInput, setUserInput] = useState("");
 	const [response, setResponse] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
+	const [selectedVoice, setSelectedVoice] = useState("female"); // To track the selected voice
+	const [highlightedText, setHighlightedText] = useState(""); // For highlighting words
+
+	let speechSynthesisUtterance;
+
+	// Function to fetch available voices (male or female)
+	const getVoices = useCallback(() => {
+		const voices = window.speechSynthesis.getVoices();
+		// Filter for male/female voices, this is basic and depends on available voices in the browser.
+		const maleVoices = voices.filter((voice) =>
+			voice.name.includes("Male"),
+		);
+		const femaleVoices = voices.filter((voice) =>
+			voice.name.includes("Female"),
+		);
+		return selectedVoice === "female" ? femaleVoices[0] : maleVoices[0];
+	}, [selectedVoice]);
+
+	// Function to start speech synthesis with word highlighting
+	const startSpeech = (text) => {
+		speechSynthesisUtterance = new SpeechSynthesisUtterance(text);
+		speechSynthesisUtterance.voice = getVoices();
+
+		const words = text.split(" ");
+		let wordIndex = 0;
+
+		speechSynthesisUtterance.onboundary = (event) => {
+			if (event.name === "word") {
+				setHighlightedText(
+					words.slice(0, wordIndex + 1).join(" ") + " ",
+				);
+				wordIndex += 1;
+			}
+		};
+
+		speechSynthesis.speak(speechSynthesisUtterance);
+	};
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
@@ -24,15 +61,19 @@ const App = () => {
 					},
 				},
 			);
-
-			setResponse(res.data.choices[0].message.content.trim());
+			const apiResponse = res.data.choices[0].message.content.trim();
+			setResponse(apiResponse);
+			startSpeech(apiResponse); // Start reading the response aloud
 		} catch (error) {
 			console.error("Error fetching the response:", error);
 			setResponse("Free tier limit exhausted");
 		}
-
 		setIsLoading(false);
 	};
+
+	useEffect(() => {
+		window.speechSynthesis.onvoiceschanged = getVoices;
+	}, [getVoices]);
 
 	return (
 		<div className='flex items-center justify-center min-h-screen bg-gray-100'>
@@ -56,10 +97,39 @@ const App = () => {
 						{isLoading ? "Generating..." : "Submit"}
 					</button>
 				</form>
+
+				{/* Voice selection buttons */}
+				<div className='flex justify-center mt-4'>
+					<button
+						onClick={() => setSelectedVoice("male")}
+						className={`p-2 mr-2 rounded ${
+							selectedVoice === "male"
+								? "bg-blue-500 text-white"
+								: "bg-gray-200 text-black"
+						}`}
+					>
+						Male Voice
+					</button>
+					<button
+						onClick={() => setSelectedVoice("female")}
+						className={`p-2 rounded ${
+							selectedVoice === "female"
+								? "bg-blue-500 text-white"
+								: "bg-gray-200 text-black"
+						}`}
+					>
+						Female Voice
+					</button>
+				</div>
+
 				<div className='mt-4 p-4 bg-gray-50 rounded'>
 					<h2 className='text-xl font-semibold'>Response:</h2>
 					<p className='mt-2 text-gray-700'>
-						{response || "Your generated content will appear here."}
+						{/* Highlight the current text being spoken */}
+						<span>{highlightedText}</span>
+						<span style={{ color: "blue" }}>
+							{response.slice(highlightedText.length)}
+						</span>
 					</p>
 				</div>
 			</div>
